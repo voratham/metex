@@ -1,23 +1,98 @@
 defmodule Metex.Worker do
-  def loop do
-    receive do
-      {sender_pid, location} -> send(sender_pid, {:ok, temperature_of(location)})
-      _ -> IO.puts("Unknown message")
-    end
+  use GenServer
 
-    loop()
+  @name MW
+
+  def start_link(opts \\ []) do
+    GenServer.start_link(__MODULE__, :ok, opts ++ [name: MW])
   end
 
-  def temperature_of(location) do
-    result = get_base_url(location) |> HTTPoison.get() |> parse_resp
+  def init(:ok) do
+    {:ok, %{}}
+  end
 
-    case result do
+  def get_temperature(location) do
+    GenServer.call(@name, {:location, location})
+  end
+
+  def get_states() do
+    GenServer.call(@name, :get_states)
+  end
+
+  # Async response
+  def reset_states() do
+    GenServer.cast(@name, :reset_states)
+  end
+
+  def stop() do
+    GenServer.cast(@name, :stop)
+  end
+
+  def handle_cast(:reset_states, _states) do
+    {:noreply, %{}}
+  end
+
+  def handle_cast(:stop, stats) do
+    # how to response stop process GenServer
+    # NOTE: if return wrong format, will error but it will stop process
+    # {:stop, :normal, :ok, stats}
+    {:stop, :normal, stats}
+  end
+
+  # hook of GenServer terminate
+  def terminate(reason, states) do
+    IO.puts("server terminated because of #{inspect(reason)}")
+    inspect(states)
+    :ok
+  end
+
+  def handle_call(:get_states, _form, states) do
+    {:reply, states, states}
+  end
+
+  def handle_call({:location, location}, _form, states) do
+    case temperature_of(location) do
       {:ok, temp} ->
-        "#{location}: #{temp}°C"
+        new_states = update_states(states, location)
+        {:reply, "#{temp}°C", new_states}
 
-      :error ->
-        "#{location} not found"
+      _ ->
+        {:reply, :error, states}
     end
+  end
+
+  def handle_info(msg, states) do
+    IO.puts("received #{inspect(msg)}")
+    {:noreply, states}
+  end
+
+  @spec update_states(map(), any()) :: map()
+  def update_states(old_states, location) do
+    case Map.has_key?(old_states, location) do
+      true -> Map.update!(old_states, location, fn old_value_of_key -> old_value_of_key + 1 end)
+      false -> Map.put_new(old_states, location, 1)
+    end
+  end
+
+  # def loop do
+  #   receive do
+  #     {sender_pid, location} -> send(sender_pid, {:ok, temperature_of(location)})
+  #     _ -> IO.puts("Unknown message")
+  #   end
+
+  #   loop()
+  # end
+
+  def temperature_of(location) do
+    get_base_url(location) |> HTTPoison.get() |> parse_resp
+
+    # case result do
+    #   {:ok, temp} ->
+    #     "#{location}: #{temp}°C"
+
+    #   :error ->
+    #     "#{location} not found"
+    # end
   end
 
   # status 200
@@ -47,6 +122,6 @@ defmodule Metex.Worker do
   end
 
   defp api_key do
-    "00b76f527833334d4c2bd94f0f64294a"
+    "API_TOKEN"
   end
 end
