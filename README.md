@@ -1,6 +1,6 @@
 # Metex
 
-**TODO: Add description**
+**This project is proof of concept about Worker,Coordinate,GenServer**
 
 ## Installation
 
