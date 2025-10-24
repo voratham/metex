@@ -42,6 +42,45 @@ end )
 cities = ["Singapore" ,"Thailand", "Shanghai", "Hong kong", "Bangkok" , "Phuket", "test"]
 Metex.temperatures_of(cities)
 
+# -------------------------
+# How to testing run on GenServer interface
+
+{:ok, pid} = Metex.Worker.start_link
+cities = ["Singapore" ,"Thailand", "Shanghai", "Hong kong", "Bangkok" , "Phuket", "test"]
+
+cities |> Enum.map(fn city -> Metex.Worker.get_temperature(pid, city) end )
+
+Metex.Worker.get_states(pid)
+
+Metex.Worker.reset_states(pid)
+
+Process.alive? pid
+
+Metex.Worker.stop pid
+
+Process.alive? pid
+
+
+
+#  in case not pass pid because using @name for alias
+{:ok, pid} = Metex.Worker.start_link
+send pid, "test" # will go to handle_info
+
+
+Metex.Worker.start_link
+Metex.Worker.get_temperature("Bangkok")
+Metex.Worker.get_states
+
+
+
+
+# in case testing Process.link
+self
+Process.info(self, :links)
+pid = spawn(fn -> receive do :crash -> 1/0 end end)
+Process.link pid
+Process.info(self, :links)
+send(pid , :crash)
 
 
 ```
